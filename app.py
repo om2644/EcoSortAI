@@ -23,7 +23,7 @@ st.write("Using your webcam or uploading an image, we will classify waste as eit
 # Start video capture
 def start_video():
     # Set up OpenCV video capture
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(0)
     #cap = cv2.VideoCapture(0)  # 0 is usually the default camera
     return cap
 
