@@ -1,5 +1,3 @@
-make changes you mentioned above and give updated full code
-
 import tensorflow as tf
 import streamlit as st
 import numpy as np
