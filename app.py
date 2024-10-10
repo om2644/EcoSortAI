@@ -1,10 +1,12 @@
+make changes you mentioned above and give updated full code
+
 import tensorflow as tf
 import streamlit as st
 import numpy as np
 import cv2
 from tensorflow.keras.models import load_model
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 from PIL import Image
+import time
 
 # Load the trained model
 model = load_model('model/Image_classify.keras')
@@ -18,9 +20,16 @@ img_width = 180   # Width defined in the model
 
 # Set header and description
 st.title("EcoSort AI: Waste Classification")
-st.write("Point your camera at waste, and this AI will classify it as either Organic or Recyclable!")
+st.write("Using your webcam or uploading an image, we will classify waste as either Organic or Recyclable!")
 
-# Function to make predictions on an image
+# Start video capture
+def start_video():
+    # Set up OpenCV video capture
+    cap = cv2.VideoCapture(0)
+    #cap = cv2.VideoCapture(0)  # 0 is usually the default camera
+    return cap
+
+# Function to make predictions on a frame
 def predict_frame(image):
     # Resize image to model's expected input shape
     image = image.resize((img_width, img_height))
@@ -36,39 +45,44 @@ def predict_frame(image):
     confidence = np.max(score) * 100  # Convert to percentage
     return category, confidence
 
-# Create a class to process the video frames from the webcam
-class VideoTransformer(VideoTransformerBase):
-    def __init__(self):
-        self.img_height = img_height
-        self.img_width = img_width
+def run_app():
+    col3, col4 = st.columns(2)
+    with col3:
+        cap = start_video()
+        stframe = st.empty()  # Create a placeholder for the video frame
+    with col4:
+        prediction_display = st.empty()  # Placeholder for prediction display
 
-    def transform(self, frame):
-        # Convert frame to numpy array (BGR format)
-        img = frame.to_ndarray(format="bgr")
-        
-        # Resize frame to the model's input size
-        img_resized = cv2.resize(img, (self.img_width, self.img_height))
-        img_arr = tf.keras.utils.img_to_array(img_resized)
-        img_bat = tf.expand_dims(img_arr, axis=0)
+    running = True  # Flag to control the webcam loop
+    
+    while running:
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-        # Make predictions using the model
-        predict = model.predict(img_bat)
-        score = tf.nn.softmax(predict)
+        # Convert frame to Image for prediction
+        image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
-        # Get the prediction and confidence
-        category = data_cat[np.argmax(score)]
-        confidence = np.max(score) * 100  # Convert to percentage
+        # Make predictions on the current frame
+        category, confidence = predict_frame(image)
 
-        # Display the prediction on the frame
-        label = f"{category} ({confidence:.2f}%)"
-        cv2.putText(img, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        # Display the live webcam feed
+        stframe.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels='RGB', use_column_width=True)
 
-        return img
+       
+        # Update the prediction and confidence display
+        prediction_display.markdown(f"<p style='text-align: center;'>Confidence: <b>{confidence:.2f}%</b></p>", unsafe_allow_html=True)
+        prediction_display.markdown(f"<h2 style='text-align: center;'><strong>Prediction: {category}<strong></h2>", unsafe_allow_html=True)
 
-# Use WebRTC to access the webcam through the browser
-webrtc_ctx = webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
+        # Delay to control frame rate
+        time.sleep(0.1)
 
-# Upload image functionality for classification
+    cap.release()
+
+
+
+
+# Upload image functionality
 uploaded_file = st.file_uploader("Upload an image...", type=["jpeg", "jpg", "png"])
 
 if uploaded_file is not None:
@@ -88,5 +102,9 @@ if uploaded_file is not None:
         st.markdown(f"<h2 style='text-align: center;'><strong>Prediction: {category}<strong></h2>", unsafe_allow_html=True)
         st.markdown(f"<p style='text-align: center;'>Confidence: <b>{confidence:.2f}%</b></p>", unsafe_allow_html=True)
 
-# Instruction for using the app
-st.info("Start your webcam or upload an image to get a waste classification prediction.")
+
+# Run the app
+if st.button("Start Webcam"):
+    run_app()
+else:
+    st.info("Press the button above to start webcam predictions.")
